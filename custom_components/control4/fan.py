@@ -1,6 +1,8 @@
 """Platform for Control4 Fan."""
 from __future__ import annotations
 
+PARALLEL_UPDATES = 0
+
 from functools import cached_property
 import logging
 from typing import Any

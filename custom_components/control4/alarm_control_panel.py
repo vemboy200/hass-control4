@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+PARALLEL_UPDATES = 0
+
 from functools import cached_property
 import logging
 
@@ -17,6 +19,7 @@ from homeassistant.components.alarm_control_panel.const import (
     CodeFormat,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv, entity_platform
 
 from . import Control4Entity, get_items_of_category
@@ -297,48 +300,65 @@ class Control4AlarmControlPanel(Control4Entity, AlarmControlPanelEntity):  # typ
 
     async def async_alarm_arm_away(self, code=None):
         """Send arm away command."""
-        c4_alarm = self.create_api_object()
-        await c4_alarm.set_arm(code or "", self.entry_data[CONF_ALARM_AWAY_MODE])
+        try:
+            await self.create_api_object().set_arm(code or "", self.entry_data[CONF_ALARM_AWAY_MODE])
+        except Exception as err:
+            raise HomeAssistantError(f"Control4 alarm arm away failed: {err}") from err
 
     async def async_alarm_arm_home(self, code=None):
         """Send arm home command."""
-        c4_alarm = self.create_api_object()
-        await c4_alarm.set_arm(code or "", self.entry_data[CONF_ALARM_HOME_MODE])
+        try:
+            await self.create_api_object().set_arm(code or "", self.entry_data[CONF_ALARM_HOME_MODE])
+        except Exception as err:
+            raise HomeAssistantError(f"Control4 alarm arm home failed: {err}") from err
 
     async def async_alarm_arm_night(self, code=None):
         """Send arm night command."""
-        c4_alarm = self.create_api_object()
-        await c4_alarm.set_arm(code or "", self.entry_data[CONF_ALARM_NIGHT_MODE])
+        try:
+            await self.create_api_object().set_arm(code or "", self.entry_data[CONF_ALARM_NIGHT_MODE])
+        except Exception as err:
+            raise HomeAssistantError(f"Control4 alarm arm night failed: {err}") from err
 
     async def async_alarm_arm_custom_bypass(self, code=None):
         """Send arm custom bypass command."""
-        c4_alarm = self.create_api_object()
-        await c4_alarm.set_arm(code or "", self.entry_data[CONF_ALARM_CUSTOM_BYPASS_MODE])
+        try:
+            await self.create_api_object().set_arm(code or "", self.entry_data[CONF_ALARM_CUSTOM_BYPASS_MODE])
+        except Exception as err:
+            raise HomeAssistantError(f"Control4 alarm arm custom bypass failed: {err}") from err
 
     async def async_alarm_arm_vacation(self, code=None):
         """Send arm vacation command."""
-        c4_alarm = self.create_api_object()
-        await c4_alarm.set_arm(code or "", self.entry_data[CONF_ALARM_VACATION_MODE])
+        try:
+            await self.create_api_object().set_arm(code or "", self.entry_data[CONF_ALARM_VACATION_MODE])
+        except Exception as err:
+            raise HomeAssistantError(f"Control4 alarm arm vacation failed: {err}") from err
 
     async def async_alarm_disarm(self, code=None):
         """Send disarm command."""
-        c4_alarm = self.create_api_object()
-        await c4_alarm.set_disarm(code or "")
+        try:
+            await self.create_api_object().set_disarm(code or "")
+        except Exception as err:
+            raise HomeAssistantError(f"Control4 alarm disarm failed: {err}") from err
 
     async def async_alarm_trigger(self, code=None):
         """Send trigger/emergency command."""
         if not self._emergency_types:
             return
-        c4_alarm = self.create_api_object()
         preferred_order = ["Police", "Fire", "Medical", "Panic"]
         emergency_type = next(
             (t for t in preferred_order if t in self._emergency_types),
             self._emergency_types[0],
         )
-        await c4_alarm.trigger_emergency(emergency_type)
+        try:
+            await self.create_api_object().trigger_emergency(emergency_type)
+        except Exception as err:
+            raise HomeAssistantError(f"Control4 alarm trigger failed: {err}") from err
 
     async def send_alarm_keystrokes(self, keystrokes):
         """Send custom keystrokes."""
         c4_alarm = self.create_api_object()
-        for key in keystrokes:
-            await c4_alarm.send_key_press(key)
+        try:
+            for key in keystrokes:
+                await c4_alarm.send_key_press(key)
+        except Exception as err:
+            raise HomeAssistantError(f"Control4 alarm keystrokes failed: {err}") from err

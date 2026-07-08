@@ -1,5 +1,7 @@
 """Platform for Control4 Lights."""
 from __future__ import annotations
+
+PARALLEL_UPDATES = 0
 from typing import Any
 
 import json

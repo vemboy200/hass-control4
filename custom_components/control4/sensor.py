@@ -1,6 +1,8 @@
 """Platform for Control4 sensors."""
 from __future__ import annotations
 
+PARALLEL_UPDATES = 0
+
 from dataclasses import dataclass
 import logging
 from typing import Any, Callable

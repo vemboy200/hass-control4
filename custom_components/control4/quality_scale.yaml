@@ -55,8 +55,8 @@ rules:
 
   # Silver
   action-exceptions:
-    status: todo
-    comment: Service call in alarm_control_panel.py does not raise HomeAssistantError/ServiceValidationError on failure.
+    status: done
+    comment: All alarm service methods and send_alarm_keystrokes wrap pyControl4 calls in try/except and raise HomeAssistantError on failure.
   config-entry-unloading:
     status: done
     comment: async_unload_entry unloads platforms, closes the websocket, and cancels background tasks.
@@ -70,11 +70,11 @@ rules:
     status: done
     comment: manifest.json codeowners lists @mike-dubman and @lawtancool.
   log-when-unavailable:
-    status: todo
-    comment: Disconnect is logged once as a warning, but no log entry is emitted when individual entities transition to unavailable.
+    status: done
+    comment: Control4Entity._update_callback logs a warning when an entity transitions to unavailable and an info when it recovers, each only on the state change edge.
   parallel-updates:
-    status: todo
-    comment: No PARALLEL_UPDATES constant defined in any platform module.
+    status: done
+    comment: All 10 platform modules define PARALLEL_UPDATES = 0 (push-based, no coordinator throttling needed).
   reauthentication-flow:
     status: done
     comment: config_flow.py implements async_step_reauth and a dedicated reauth confirmation step.

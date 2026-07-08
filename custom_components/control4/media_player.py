@@ -1,6 +1,8 @@
 """Platform for Control4 Rooms Media Players."""
 from __future__ import annotations
 
+PARALLEL_UPDATES = 0
+
 import base64
 from dataclasses import dataclass, field
 from datetime import timedelta
@@ -34,6 +36,7 @@ from .const import (
     CONF_UI_CONFIGURATION,
     Control4ConfigEntry,
     DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
 )
 from .director_utils import (
     director_get_entry_variables,

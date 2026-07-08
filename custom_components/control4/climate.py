@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+PARALLEL_UPDATES = 0
+
 from functools import cached_property
 import logging
 

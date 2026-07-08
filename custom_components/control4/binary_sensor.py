@@ -1,6 +1,8 @@
 """Platform for Control4 Binary Sensor."""
 from __future__ import annotations
 
+PARALLEL_UPDATES = 0
+
 from datetime import datetime
 from functools import cached_property
 import logging

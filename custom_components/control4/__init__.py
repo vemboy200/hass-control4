@@ -595,8 +595,20 @@ class Control4Entity(Entity):
 
         # Message will be False when a Websocket disconnect is detected
         if message is False:
+            if self._attr_available:
+                _LOGGER.warning(
+                    "Control4 entity %s (%s) is unavailable",
+                    self.name,
+                    self._idx,
+                )
             self._attr_available = False
         elif message["evtName"] == "OnDataToUI":
+            if not self._attr_available:
+                _LOGGER.info(
+                    "Control4 entity %s (%s) is available again",
+                    self.name,
+                    self._idx,
+                )
             self._attr_available = True
             data = message["data"]
             await self._data_to_extra_state_attributes(data)

@@ -1,6 +1,8 @@
 """Platform for Control4 Covers (blinds/shades and garage doors)."""
 from __future__ import annotations
 
+PARALLEL_UPDATES = 0
+
 import asyncio
 import logging
 import time

@@ -1,6 +1,8 @@
 """Platform for Control4 Locks."""
 from __future__ import annotations
 
+PARALLEL_UPDATES = 0
+
 import logging
 
 from pyControl4.relay import C4Relay

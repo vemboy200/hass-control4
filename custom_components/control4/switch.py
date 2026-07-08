@@ -1,6 +1,8 @@
 """Platform for Control4 Switches."""
 from __future__ import annotations
 
+PARALLEL_UPDATES = 0
+
 import asyncio
 import logging
 
