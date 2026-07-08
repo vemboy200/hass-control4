@@ -9,12 +9,12 @@ This custom integration connects Home Assistant to a [Control4](https://www.cont
 This repo is **not** in the default HACS store. Add it as a custom repository first:
 
 1. **HACS** → **Integrations** → **⋮** → **Custom repositories**
-2. Repository: `https://github.com/vemboy20/hass-control4`
+2. Repository: `https://github.com/vemboy200/hass-control4`
 3. Category: **Integration** → **Add**
 4. **HACS** → **Integrations** → **Explore & Download Repositories** → find **Control4** → **Download**
 5. **Restart Home Assistant**
 
-Install the latest [release tag](https://github.com/vemboy20/hass-control4/releases) (stable). Pull requests merged into `release` publish a **pre-release drop** that you can install from HACS with **Show beta versions** enabled.
+Install the latest [release tag](https://github.com/vemboy200/hass-control4/releases) (stable). Pull requests merged into `release` publish a **pre-release drop** that you can install from HACS with **Show beta versions** enabled.
 
 Once installed, follow the same setup instructions as the default integration: https://www.home-assistant.io/integrations/control4
 
