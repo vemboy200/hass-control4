@@ -203,6 +203,7 @@ class Control4Climate(Control4Entity, ClimateEntity):  # type: ignore[misc]
         else:
             self._thermostat_setup = {}
         self._aux_heat_active = False
+        self._attr_should_poll = True
 
     def create_api_object(self):
         """Create a pyControl4 device object.
@@ -404,11 +405,14 @@ class Control4Climate(Control4Entity, ClimateEntity):  # type: ignore[misc]
                     "set hvac mode with aux: %s",
                     hvac_mode,
                 )
+                self._extra_state_attributes[ATTR_HVAC_MODE] = CONTROL4_HVAC_MODE_AUX_HEAT
                 await c4_climate.set_hvac_mode(CONTROL4_HVAC_MODE_AUX_HEAT)
             else:
+                self._extra_state_attributes[ATTR_HVAC_MODE] = CONTROL4_HVAC_MODE_HEAT
                 await c4_climate.set_hvac_mode(CONTROL4_HVAC_MODE_HEAT)
         else:
             if hvac_mode in CONTROL4_HVAC_MODES:
+                self._extra_state_attributes[ATTR_HVAC_MODE] = CONTROL4_HVAC_MODES[hvac_mode]
                 await c4_climate.set_hvac_mode(CONTROL4_HVAC_MODES[hvac_mode])
             else:
                 _LOGGER.exception(
@@ -420,6 +424,7 @@ class Control4Climate(Control4Entity, ClimateEntity):  # type: ignore[misc]
         """Set new target fan mode."""
         c4_climate = self.create_api_object()
         if fan_mode in CONTROL4_FAN_MODES:
+            self._extra_state_attributes[ATTR_FAN_MODE] = CONTROL4_FAN_MODES[fan_mode]
             await c4_climate.set_fan_mode(CONTROL4_FAN_MODES[fan_mode])
         else:
             _LOGGER.exception(
@@ -430,6 +435,7 @@ class Control4Climate(Control4Entity, ClimateEntity):  # type: ignore[misc]
     async def async_set_preset_mode(self, preset_mode) -> None:
         """Set new target preset mode."""
         c4_climate = self.create_api_object()
+        self._extra_state_attributes[ATTR_HOLD_MODE] = preset_mode
         await c4_climate.set_hold_mode(preset_mode)
 
 
@@ -438,8 +444,10 @@ class Control4Climate(Control4Entity, ClimateEntity):  # type: ignore[misc]
         if self.target_temperature_step >= 1:
             temp = int(temp)
         if self.temperature_unit == UnitOfTemperature.FAHRENHEIT:
+            self._extra_state_attributes[ATTR_COOL_SETPOINT_F] = temp
             await c4_climate.set_cool_setpoint_f(temp)
         else:
+            self._extra_state_attributes[ATTR_COOL_SETPOINT_C] = temp
             await c4_climate.set_cool_setpoint_c(temp)
 
     async def _set_heat_setpoint(self, temp) -> None:
@@ -447,8 +455,10 @@ class Control4Climate(Control4Entity, ClimateEntity):  # type: ignore[misc]
         if self.target_temperature_step >= 1:
             temp = int(temp)
         if self.temperature_unit == UnitOfTemperature.FAHRENHEIT:
+            self._extra_state_attributes[ATTR_HEAT_SETPOINT_F] = temp
             await c4_climate.set_heat_setpoint_f(temp)
         else:
+            self._extra_state_attributes[ATTR_HEAT_SETPOINT_C] = temp
             await c4_climate.set_heat_setpoint_c(temp)
 
     def _get_setpoint_deadband(self) -> float:
@@ -495,3 +505,10 @@ class Control4Climate(Control4Entity, ClimateEntity):  # type: ignore[misc]
         self._aux_heat_active = False
         if self.hvac_mode == HVACMode.HEAT:
             await self.async_set_hvac_mode(HVACMode.HEAT)
+
+    async def async_update(self) -> None:
+        """Poll thermostat state from the director."""
+        director = self.entry_data[CONF_DIRECTOR]
+        data = await director.get_item_variables(self._idx)
+        for item in data:
+            self._extra_state_attributes[item["varName"]] = item["value"]
