@@ -3,7 +3,8 @@
   "name": "Control4",
   "codeowners": [
     "@mike-dubman",
-    "@lawtancool"
+    "@lawtancool",
+    "@vemboy200"
   ],
   "config_flow": true,
   "dependencies": [
