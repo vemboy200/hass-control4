@@ -74,7 +74,6 @@ CONTROL4_MEDIA_JOIN_EVENT_ENTITIES = "joining_entities"
 CONTROL4_MEDIA_JOIN_EVENT_SOURCE_IDX = "source_idx"
 CONTROL4_BROWSE_ROOT = f"{DOMAIN}_browse_root"
 CONTROL4_BROWSE_MODE = f"{DOMAIN}_browse_mode"
-CONTROL4_BROWSE_COMMAND = f"{DOMAIN}_browse_command"
 
 
 class _SourceType(enum.Enum):
@@ -544,110 +543,26 @@ class Control4Room(Control4CoordinatorEntity, MediaPlayerEntity):  # type: ignor
         await self._create_api_object().set_previous()
         await self.coordinator.async_request_refresh()
 
-    def _filter_browse_items_for_room(
-        self,
-        items: list[dict[str, Any]],
-        mode: str,
-    ) -> list[dict[str, Any]]:
-        """Filter browse items to sources available in this room."""
-        source_type = _SourceType.AUDIO if mode == "listen" else _SourceType.VIDEO
-        allowed_source_ids = {
-            source.idx
-            for source in self._sources.values()
-            if source_type in source.source_type
-        }
-        if not allowed_source_ids:
-            return items
-
-        filtered: list[dict[str, Any]] = []
-        matched_source_item = False
-        for item in items:
-            device_id = item.get("device_id")
-            if isinstance(device_id, int):
-                if device_id in allowed_source_ids:
-                    matched_source_item = True
-                    filtered.append(item)
-                continue
-            filtered.append(item)
-
-        if matched_source_item:
-            return filtered
-        return items
-
-    async def _get_browse_commands(self, mode: str) -> list[dict[str, Any]]:
-        """Build the browse command list for Listen or Watch."""
-        room = self._create_api_object()
-        command_data = await room.get_commands()
-        commands: list[dict[str, Any]] = []
-        for command in command_data:
-            command_name = command.get("command")
-            if not isinstance(command_name, str):
-                continue
-            media_type_value = None
-            if ":" in command_name:
-                command_name, media_type_value = command_name.split(":", 1)
-            if mode == "listen" and not command_name.startswith("SELECT_AUDIO_"):
-                continue
-            if mode == "watch" and not command_name.startswith("SELECT_VIDEO_"):
-                continue
-            params = command.get("params", [])
-            if not isinstance(params, list):
-                continue
-            path = None
-            param_name = "mediaid"
-            value_field = "id"
-            defaults = {}
-            for param in params:
-                if not isinstance(param, dict):
-                    continue
-                value_src = param.get("valueSrc")
-                if path is None and isinstance(value_src, dict) and "path" in value_src:
-                    path = value_src["path"]
-                    param_name = param.get("name", "mediaid")
-                    value_field = param.get("valueField", "id")
-                    continue
-                name = param.get("name")
-                if not isinstance(name, str):
-                    continue
-                if "value" in param:
-                    value = param["value"]
-                    if isinstance(value, dict) and "static" in value:
-                        defaults[name] = value["static"]
-                    else:
-                        defaults[name] = value
-            if not isinstance(path, str):
-                continue
-            if media_type_value and "type" not in defaults:
-                defaults["type"] = media_type_value
-            commands.append(
-                {
-                    "mode": mode,
-                    "command": command_name,
-                    "title": command.get("label", command_name),
-                    "path": path,
-                    "param_name": param_name,
-                    "value_field": value_field,
-                    "defaults": defaults,
-                }
-            )
-        return commands
-
     async def _browse_mode(self, mode: str) -> BrowseMedia:
-        """Build the Listen/Watch folder in browse."""
-        commands = await self._get_browse_commands(mode)
+        """Build the Listen/Watch folder from the room's known sources."""
+        audio_only = mode == "listen"
+        source_type_filter = _SourceType.AUDIO if audio_only else _SourceType.VIDEO
         children = []
-        for command in commands:
+        for source in self._sources.values():
+            if source_type_filter not in source.source_type:
+                continue
+            play_payload = {"source_id": source.idx, "audio_only": audio_only}
             children.append(
                 BrowseMedia(
-                    title=command["title"],
-                    media_class="directory",
-                    media_content_type=CONTROL4_BROWSE_COMMAND,
-                    media_content_id=json.dumps(command),
-                    can_play=False,
-                    can_expand=True,
+                    title=source.name,
+                    media_class="music" if audio_only else "video",
+                    media_content_type=MediaType.MUSIC if audio_only else MediaType.VIDEO,
+                    media_content_id=json.dumps(play_payload),
+                    can_play=True,
+                    can_expand=False,
                 )
             )
-        title = "Listen" if mode == "listen" else "Watch"
+        title = "Listen" if audio_only else "Watch"
         return BrowseMedia(
             title=title,
             media_class="directory",
@@ -658,47 +573,6 @@ class Control4Room(Control4CoordinatorEntity, MediaPlayerEntity):  # type: ignor
             children=children,
         )
 
-    async def _browse_command(self, media_content_id: str) -> BrowseMedia:
-        """Build selectable items for one browse command."""
-        command_data = json.loads(media_content_id)
-        path = command_data["path"]
-        room = self._create_api_object()
-        mode = command_data.get("mode", "listen")
-        items = await room.get_browse_items(path)
-        items = self._filter_browse_items_for_room(items, mode)
-
-        param_name = command_data["param_name"]
-        value_field = command_data["value_field"]
-        defaults = command_data.get("defaults", {})
-        command = command_data["command"]
-
-        children = []
-        for item in items:
-            if value_field not in item:
-                continue
-            params = dict(defaults)
-            params[param_name] = item[value_field]
-            play_payload = {"command": command, "params": params}
-            children.append(
-                BrowseMedia(
-                    title=item.get("name"),
-                    media_class="track" if mode == "listen" else "video",
-                    media_content_type=MediaType.MUSIC if mode == "listen" else MediaType.VIDEO,
-                    media_content_id=json.dumps(play_payload),
-                    can_play=True,
-                    can_expand=False,
-                )
-            )
-
-        return BrowseMedia(
-            title=command_data["title"],
-            media_class="directory",
-            media_content_type=CONTROL4_BROWSE_COMMAND,
-            media_content_id=media_content_id,
-            can_play=False,
-            can_expand=True,
-            children=children,
-        )
 
     async def async_browse_media(
         self, media_content_type: str | None = None, media_content_id: str | None = None
@@ -706,8 +580,6 @@ class Control4Room(Control4CoordinatorEntity, MediaPlayerEntity):  # type: ignor
         """Return the browse root, or drill into a child node."""
         if media_content_type == CONTROL4_BROWSE_MODE and media_content_id:
             return await self._browse_mode(media_content_id)
-        if media_content_type == CONTROL4_BROWSE_COMMAND and media_content_id:
-            return await self._browse_command(media_content_id)
 
         children = []
         has_listen = any(
@@ -749,19 +621,19 @@ class Control4Room(Control4CoordinatorEntity, MediaPlayerEntity):  # type: ignor
         )
 
     async def async_play_media(self, media_type: str, media_id: str, **kwargs: Any) -> None:
-        """Execute a play payload selected from browse."""
+        """Select a source chosen from the browse tree."""
         try:
             payload = json.loads(media_id)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, ValueError):
             return
         if not isinstance(payload, dict):
             return
-        command = payload.get("command")
-        if not isinstance(command, str):
+        source_id = payload.get("source_id")
+        if not isinstance(source_id, int):
             return
-        params = payload.get("params", {})
-        if not isinstance(params, dict):
-            params = {}
         room = self._create_api_object()
-        await room.play_browse_item(command, params)
+        if payload.get("audio_only", True):
+            await room.set_audio_source(source_id)
+        else:
+            await room.set_video_and_audio_source(source_id)
         await self.coordinator.async_request_refresh()
