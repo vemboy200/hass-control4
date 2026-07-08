@@ -40,12 +40,98 @@ Control4 can be autodiscovered, but if Home Assistant fails to discover it you c
 | Username | Username used to log in to the Control4 app / customer portal |
 | Password | Password used to log in to the Control4 app / customer portal |
 
-### Additional configuration required for alarm control panel
+### Options
 
-If you are using an alarm control panel, you must go to Home Assistant -> Configuration -> Devices and Services -> Integrations and click "Configure" on the Control4 entry.
+After setup, go to **Settings** → **Devices & Services** → **Control4** → **Configure** to adjust:
 
-In the dialog that appears, choose the Control4 alarm arming modes that you want to correspond to each Home Assistant arming mode. For example, a DSC alarm system uses "Stay" as the "Alarm arm home mode name", and "Away" as the "Alarm arm away mode name". If your alarm system does not use one of the mode names, select `(not set)`. Once you click submit on the dialog, Home Assistant will be able to arm your alarm control panel and detect its state.
+| Option | Description |
+| ------ | ----------- |
+| Alarm arm away mode name | Control4 arm mode that maps to HA "arm away" |
+| Alarm arm home mode name | Control4 arm mode that maps to HA "arm home" |
+| Alarm arm night mode name | Control4 arm mode that maps to HA "arm night" |
+| Alarm arm vacation mode name | Control4 arm mode that maps to HA "arm vacation" |
+| Alarm arm custom bypass mode name | Control4 arm mode that maps to HA "arm custom bypass" |
+| Prepend device name to entity name | When enabled, entity names include the parent device name (e.g. "Lutron Switch Light") |
 
+Set any alarm mode to `(not set)` if your system does not use that arming mode; the corresponding HA feature will be hidden.
+
+**Example — DSC alarm panel:** set "Alarm arm home mode name" to `Stay` and "Alarm arm away mode name" to `Away`.
+
+
+## Supported Devices and Functions
+
+The integration maps Control4 device types to Home Assistant entity platforms as follows:
+
+| Control4 Device | HA Platform | Supported Functions |
+| --------------- | ----------- | ------------------- |
+| Light switch / dimmer | `light` | On/off, brightness (1–100%), color temperature, XY color, transition time, effects |
+| Fan | `fan` | On/off, speed percentage |
+| Relay switch / pump | `switch` | On/off, toggle |
+| Relay lock | `lock` | Lock, unlock |
+| Security panel | `alarm_control_panel` | Arm away/home/night/vacation/custom bypass, disarm, trigger emergency |
+| Door / window sensor | `binary_sensor` | Open/closed state |
+| Motion sensor | `binary_sensor` | Motion detected/cleared |
+| Thermostat | `climate` | Target temperature, HVAC mode (heat/cool/heat-cool/off), fan mode, preset |
+| Blind / shade | `cover` | Open, close, stop, set position (on supported drivers) |
+| Garage door | `cover` | Open, close, with open/closed state feedback |
+| Media room / AV receiver | `media_player` | Play/pause/stop, volume up/down/mute, source selection, browse media, next/previous track |
+
+Media player entities appear per Control4 room that has an audio or video endpoint configured in the Control4 project.
+
+## Use Cases
+
+- **Unified dashboard** — Control Control4 lights, thermostats, and blinds alongside devices from other ecosystems in a single Home Assistant dashboard.
+- **Presence-based automation** — Turn off all Control4 lights or arm the security system automatically when everyone leaves home.
+- **Voice control** — Use Home Assistant's Alexa or Google Home integrations to voice-control Control4 devices without a separate Control4 voice skill.
+- **Advanced scenes** — Send arbitrary Control4 commands via the `control4.send_command` action to trigger Control4 experiences or scenes not directly exposed as HA entities.
+- **Cross-system automations** — React to Control4 sensor state (door opened, motion detected) in automations that also control non-Control4 devices.
+
+## Examples
+
+### Turn off all lights when everyone leaves
+
+```yaml
+automation:
+  alias: "Control4 – away lights off"
+  trigger:
+    - platform: state
+      entity_id: zone.home
+      to: "0"
+  action:
+    - service: light.turn_off
+      target:
+        area_id: living_room
+```
+
+### Arm the alarm when the last person leaves
+
+```yaml
+automation:
+  alias: "Control4 – auto arm away"
+  trigger:
+    - platform: state
+      entity_id: zone.home
+      to: "0"
+  action:
+    - service: alarm_control_panel.alarm_arm_away
+      target:
+        entity_id: alarm_control_panel.my_alarm_panel
+      data:
+        code: "1234"
+```
+
+### Send a custom Control4 command
+
+```yaml
+action:
+  - service: control4.send_command
+    data:
+      entity_id: light.living_room_dimmer
+      command: SET_LEVEL
+      params:
+        LEVEL: 50
+        TIME: 2
+```
 
 ## Data updates
 
@@ -86,6 +172,29 @@ Sends a sequence of keystrokes to a Control4 security panel entity. Useful for e
 | ----- | -------- | ----------- |
 | `entity_id` | Yes | The alarm control panel entity to target |
 | `keystrokes` | Yes | String of keystrokes to send, one character at a time |
+
+## Troubleshooting
+
+**Entities are unavailable after a network blip**
+The integration reconnects the WebSocket automatically. Entities should return to available within a few seconds of the network recovering. If they stay unavailable, reload the config entry from **Settings** → **Devices & Services** → **Control4** → **⋮** → **Reload**.
+
+**Setup fails with "Cannot connect"**
+Verify the controller IP address is reachable from Home Assistant (`ping <ip>` from the HA host). Ensure a static IP or DHCP reservation is set on the router. 4Sight remote access is not supported — the integration only works on the local network.
+
+**Setup fails with "Invalid authentication"**
+Use the same email and password you log in to the Control4 app or [customer.control4.com](https://customer.control4.com/) with. These are your Control4 account credentials, not a local controller password.
+
+**Entities are stale or return errors after running for a while**
+The local director token has expired and automatic refresh failed. Reload the config entry to force a fresh token.
+
+**SSDP autodiscovery does not find the controller**
+Add the integration manually and enter the controller's IP address directly. See [Configuration](#configuration).
+
+**A media player room is missing**
+The room must have an audio or video endpoint (receiver, TV, etc.) bound to it in the Control4 project. Rooms with no AV endpoint do not appear as media player entities.
+
+**A device type I expect is not showing up**
+Open an issue with the Control4 proxy name of the device (visible in the Control4 Composer software). This integration is reverse-engineered, so some proxy types may not be mapped yet.
 
 ## Removing This Integration
 

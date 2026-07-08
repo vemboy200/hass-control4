@@ -20,8 +20,8 @@ rules:
     status: done
     comment: manifest.json declares pyControl4==2.0.2 and the http dependency explicitly.
   docs-actions:
-    status: exempt
-    comment: Integration exposes send_command and send_alarm_keystrokes; documented in services.yaml. Full prose docs deferred.
+    status: done
+    comment: README.md Actions section documents send_command and send_alarm_keystrokes with field tables.
   docs-triggers:
     status: exempt
     comment: Integration does not provide any custom HA device triggers; no trigger platform exists.
@@ -64,8 +64,8 @@ rules:
     status: done
     comment: async_unload_entry unloads platforms, closes the websocket, and cancels background tasks.
   docs-configuration-parameters:
-    status: todo
-    comment: some stuff like alarm system is there but not some other stuff.
+    status: done
+    comment: README Options section tables all config-flow and options-flow parameters with descriptions.
   docs-installation-parameters:
     status: done
     comment: README.md documents the config-flow parameters and their defaults.
@@ -105,23 +105,23 @@ rules:
     status: done
     comment: README describes the websocket-based update mechanism.
   docs-examples:
-    status: todo
-    comment: No example configurations or automations are documented.
+    status: done
+    comment: README Examples section provides YAML automations (away lights off, auto arm) and a send_command service call example.
   docs-known-limitations:
     status: done
     comment: known-limitations section in README.
   docs-supported-devices:
-    status: todo
-    comment: Needs a list of supported Control4 device types and their corresponding entity platforms.
+    status: done
+    comment: README Supported Devices and Functions section lists all Control4 proxy types and their HA platform mappings.
   docs-supported-functions:
-    status: todo
-    comment: README doesnt describe supported functions per platform.
+    status: done
+    comment: README Supported Devices and Functions table documents the capabilities exposed per platform.
   docs-troubleshooting:
-    status: todo
-    comment: No troubleshooting guide is provided.
+    status: done
+    comment: README Troubleshooting section covers unavailable entities, auth failures, token expiry, missing devices, and SSDP discovery failures.
   docs-use-cases:
-    status: todo
-    comment: README covers setup only, not example use cases.
+    status: done
+    comment: README Use Cases section lists five concrete scenarios (unified dashboard, presence automation, voice control, scenes, cross-system automations).
   dynamic-devices:
     status: done
     comment: On websocket reconnect, director items are re-fetched and per-platform callbacks add any new entities not seen at initial setup (light, fan, switch, lock, sensor, cover, binary_sensor).
