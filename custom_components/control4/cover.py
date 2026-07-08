@@ -23,6 +23,7 @@ from . import Control4Entity
 from .const import (
 	CONF_DIRECTOR,
 	CONF_DIRECTOR_ALL_ITEMS,
+	CONF_DYNAMIC_DEVICE_CALLBACKS,
 	CONTROL4_ENTITY_TYPE,
 	Control4ConfigEntry,
 )
@@ -267,6 +268,83 @@ async def async_setup_entry(
 		)
 
 	async_add_entities(entity_list, True)
+
+	registered_ids: set[int] = {e._idx for e in entity_list}
+
+	async def _async_add_new_covers(hass: HomeAssistant, entry: Control4ConfigEntry) -> None:
+		all_items = entry.runtime_data[CONF_DIRECTOR_ALL_ITEMS]
+		items_by_id = {item.get("id"): item for item in all_items if "id" in item}
+		new_garage_parent_ids = {
+			item["id"] for item in all_items if item.get("id") and _is_garage_parent(item)
+		}
+		new_garage_ids = {
+			item["id"]
+			for item in all_items
+			if item.get("type") == CONTROL4_ENTITY_TYPE
+			and item.get("id")
+			and item.get("proxy") == _GARAGE_PROXY
+			and item.get("parentId") in new_garage_parent_ids
+		}
+		new_entities: list[CoverEntity] = []
+		entry_data = entry.runtime_data
+
+		for item in all_items:
+			if item.get("type") != CONTROL4_ENTITY_TYPE or not item.get("id"):
+				continue
+			if item["id"] in registered_ids:
+				continue
+			cover_model = _get_cover_model(item)
+			if cover_model is None:
+				continue
+			try:
+				item_id = item["id"]
+				parent = items_by_id.get(item["parentId"], {})
+				item_attributes = await director_get_entry_variables(hass, entry, item_id)
+				new_entities.append(
+					Control4Cover(
+						cover_model, entry_data, entry,
+						str(item["name"]), item_id,
+						parent.get("name"), parent.get("manufacturer"), parent.get("model"),
+						item["parentId"], item.get("roomName"), item_attributes,
+					)
+				)
+				registered_ids.add(item_id)
+			except KeyError:
+				_LOGGER.exception("Unknown cover device properties: %s", item)
+
+		for item in all_items:
+			if not (
+				item.get("type") == CONTROL4_ENTITY_TYPE
+				and item.get("id")
+				and item.get("proxy") == _GARAGE_PROXY
+				and item.get("parentId") in new_garage_parent_ids
+				and item["id"] not in registered_ids
+			):
+				continue
+			try:
+				item_id = item["id"]
+				parent = items_by_id.get(item["parentId"], {})
+				item_attributes = await director_get_entry_variables(hass, entry, item_id)
+				if _GARAGE_STATE_VARIABLE not in item_attributes:
+					item_attributes.update(
+						await director_get_entry_variables(hass, entry, item["parentId"])
+					)
+				new_entities.append(
+					Control4GarageCover(
+						entry_data, entry,
+						str(item["name"]), item_id,
+						str(item["name"]), parent.get("manufacturer"), parent.get("model"),
+						item["parentId"], item.get("roomName"), item_attributes,
+					)
+				)
+				registered_ids.add(item_id)
+			except KeyError:
+				_LOGGER.exception("Unknown garage door properties: %s", item)
+
+		if new_entities:
+			async_add_entities(new_entities, True)
+
+	entry.runtime_data[CONF_DYNAMIC_DEVICE_CALLBACKS].append(_async_add_new_covers)
 
 
 class Control4Cover(Control4Entity, CoverEntity):  # type: ignore[misc]

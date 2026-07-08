@@ -117,8 +117,8 @@ rules:
     status: todo
     comment: README covers setup only, not example use cases.
   dynamic-devices:
-    status: todo
-    comment: Devices/entities are enumerated once from the director export at setup; no runtime add/remove handling.
+    status: done
+    comment: On websocket reconnect, director items are re-fetched and per-platform callbacks add any new entities not seen at initial setup (light, fan, switch, lock, sensor, cover, binary_sensor).
   entity-category:
     status: todo
     comment: No entity uses _attr_entity_category (e.g. diagnostic/config) anywhere in the platform files.

@@ -18,6 +18,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from . import Control4Entity
 from .const import (
     CONF_DIRECTOR_ALL_ITEMS,
+    CONF_DYNAMIC_DEVICE_CALLBACKS,
     CONF_ENTITY_PREPEND_PARENT_NAME,
     CONTROL4_ENTITY_TYPE,
     Control4ConfigEntry,
@@ -162,6 +163,58 @@ async def async_setup_entry(
                 name,
                 var_names,
             )
+
+    registered_keys: set[tuple[int, str]] = {
+        (e._idx, e._sm.key) for e in entities
+    }
+
+    async def _async_add_new_sensors(hass: HomeAssistant, entry: Control4ConfigEntry) -> None:
+        all_items = entry.runtime_data[CONF_DIRECTOR_ALL_ITEMS]
+        new_entities: list[Control4AttrSensor] = []
+        entry_data = entry.runtime_data
+        for item in all_items:
+            try:
+                if item["type"] != CONTROL4_ENTITY_TYPE or not item.get("id"):
+                    continue
+                item_id = item["id"]
+                item_proxy = item.get("proxy")
+                item_manufacturer = None
+                item_device_name = None
+                item_model = None
+                for parent_item in all_items:
+                    if parent_item.get("id") == item["parentId"]:
+                        item_manufacturer = parent_item.get("manufacturer")
+                        item_device_name = parent_item.get("name")
+                        item_model = parent_item.get("model")
+                        break
+                raw_attrs = await director_get_entry_variables(hass, entry, item_id)
+                attrs = {str(k).upper(): v for k, v in raw_attrs.items()}
+                for sm in SENSORS:
+                    key = (item_id, sm.key)
+                    if sm.key in attrs and sm.proxies and item_proxy in sm.proxies and key not in registered_keys:
+                        new_entities.append(
+                            Control4AttrSensor(
+                                entry_data=entry_data,
+                                entry=entry,
+                                name=sm.name_suffix,
+                                idx=item_id,
+                                item_display_name=str(item.get("name") or ""),
+                                device_name=item_device_name,
+                                device_manufacturer=item_manufacturer,
+                                device_model=item_model,
+                                device_id=item["parentId"],
+                                device_area=item["roomName"],
+                                device_attributes=attrs,
+                                sensor_map=sm,
+                            )
+                        )
+                        registered_keys.add(key)
+            except Exception:
+                _LOGGER.debug("Skipping invalid sensor item: %s", item, exc_info=True)
+        if new_entities:
+            async_add_entities(new_entities, True)
+
+    entry.runtime_data[CONF_DYNAMIC_DEVICE_CALLBACKS].append(_async_add_new_sensors)
 
 
 class Control4AttrSensor(Control4Entity, SensorEntity):  # type: ignore[misc]

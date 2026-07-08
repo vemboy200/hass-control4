@@ -24,7 +24,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util.color import value_to_brightness, brightness_to_value
 
 from . import Control4Entity, get_items_of_category
-from .const import CONF_DIRECTOR, CONTROL4_ENTITY_TYPE, Control4ConfigEntry
+from .const import CONF_DIRECTOR, CONF_DYNAMIC_DEVICE_CALLBACKS, CONTROL4_ENTITY_TYPE, Control4ConfigEntry
 from .director_utils import director_get_entry_variables
 
 _LOGGER = logging.getLogger(__name__)
@@ -88,6 +88,49 @@ async def async_setup_entry(
         )
 
     async_add_entities(entity_list, True)
+
+    registered_ids: set[int] = {e._idx for e in entity_list}
+
+    async def _async_add_new_lights(hass: HomeAssistant, entry: Control4ConfigEntry) -> None:
+        new_items = await get_items_of_category(hass, entry, CONTROL4_CATEGORY)
+        new_entities = []
+        entry_data = entry.runtime_data
+        for item in new_items:
+            try:
+                if not (item["type"] == CONTROL4_ENTITY_TYPE and item["id"] and item["proxy"] != "fan"):
+                    continue
+                if item["id"] in registered_ids:
+                    continue
+                item_manufacturer = None
+                item_device_name = None
+                item_model = None
+                for parent_item in new_items:
+                    if parent_item["id"] == item["parentId"]:
+                        item_manufacturer = parent_item.get("manufacturer")
+                        item_device_name = parent_item.get("name")
+                        item_model = parent_item.get("model")
+                item_attributes = await director_get_entry_variables(hass, entry, item["id"])
+                new_entities.append(
+                    Control4Light(
+                        entry_data,
+                        entry,
+                        str(item["name"]),
+                        item["id"],
+                        item_device_name,
+                        item_manufacturer,
+                        item_model,
+                        item["parentId"],
+                        item["roomName"],
+                        item_attributes,
+                    )
+                )
+                registered_ids.add(item["id"])
+            except KeyError:
+                _LOGGER.exception("Unknown light device properties: %s", item)
+        if new_entities:
+            async_add_entities(new_entities, True)
+
+    entry.runtime_data[CONF_DYNAMIC_DEVICE_CALLBACKS].append(_async_add_new_lights)
 
 
 class Control4Light(Control4Entity, LightEntity):  # type: ignore[misc]

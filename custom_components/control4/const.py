@@ -57,3 +57,5 @@ SERVICE_SEND_COMMAND = "send_command"
 SERVICE_FIELD_COMMAND = "command"
 SERVICE_FIELD_PARAMS = "params"
 SERVICE_FIELD_ITEM_ID = "item_id"
+
+CONF_DYNAMIC_DEVICE_CALLBACKS = "dynamic_device_callbacks"

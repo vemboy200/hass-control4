@@ -54,6 +54,7 @@ from .const import (
     CONF_CONTROLLER_UNIQUE_ID,
     CONF_DIRECTOR,
     CONF_DIRECTOR_ALL_ITEMS,
+    CONF_DYNAMIC_DEVICE_CALLBACKS,
     CONF_DYNALITE_ENABLED,
     CONF_DIRECTOR_MODEL,
     CONF_DIRECTOR_SW_VERSION,
@@ -206,6 +207,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: Control4ConfigEntry) -> 
         DEFAULT_ALARM_VACATION_MODE,
     }
 
+    entry_data[CONF_DYNAMIC_DEVICE_CALLBACKS] = []
+
     # Dynalite gateway listener (TCP) for trigger binary sensors — only when enabled
     # and Director data includes at least one dynalite_trigger
     entry_data[CONF_DYNALITE_ENABLED] = entry.options.get(CONF_DYNALITE_ENABLED, False)
@@ -320,6 +323,23 @@ async def _async_handle_send_command(
     if call.return_response:
         return {"sent_count": len(targets)}
     return None
+
+
+async def _async_check_for_new_devices(
+    hass: HomeAssistant, entry: Control4ConfigEntry
+) -> None:
+    """Re-fetch director items on reconnect and call per-platform callbacks to add new entities."""
+    try:
+        new_items = await entry.runtime_data[CONF_DIRECTOR].get_all_item_info()
+    except Exception:
+        _LOGGER.exception("Failed to re-fetch director items for dynamic device check")
+        return
+    entry.runtime_data[CONF_DIRECTOR_ALL_ITEMS] = new_items
+    for callback in entry.runtime_data.get(CONF_DYNAMIC_DEVICE_CALLBACKS, []):
+        try:
+            await callback(hass, entry)
+        except Exception:
+            _LOGGER.exception("Error in dynamic device callback")
 
 
 async def update_listener(hass, config_entry):
@@ -451,6 +471,9 @@ class C4WebsocketConnectionTracker:
             await callback(item_id, message)
 
         self._was_disconnected = False
+
+        # Check for newly added devices since last connection
+        await _async_check_for_new_devices(self.hass, self.entry)
 
     async def disconnect_callback(self) -> None:
         """Detect a Websocket connection loss."""

@@ -13,7 +13,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import Control4Entity
-from .const import CONF_DIRECTOR, CONF_DIRECTOR_ALL_ITEMS, CONTROL4_ENTITY_TYPE, Control4ConfigEntry
+from .const import CONF_DIRECTOR, CONF_DIRECTOR_ALL_ITEMS, CONF_DYNAMIC_DEVICE_CALLBACKS, CONTROL4_ENTITY_TYPE, Control4ConfigEntry
 from .director_utils import director_get_entry_variables
 
 _LOGGER = logging.getLogger(__name__)
@@ -83,6 +83,46 @@ async def async_setup_entry(
             )
 
     async_add_entities(entity_list, True)
+
+    registered_ids: set[int] = {e._idx for e in entity_list}
+
+    async def _async_add_new_switches(hass: HomeAssistant, entry: Control4ConfigEntry) -> None:
+        all_items = entry.runtime_data[CONF_DIRECTOR_ALL_ITEMS]
+        new_entities = []
+        entry_data = entry.runtime_data
+        for item in all_items:
+            if item.get("proxy") not in CONTROL4_RELAY_PROXY_TYPES:
+                continue
+            try:
+                if not (item["type"] == CONTROL4_ENTITY_TYPE and item["id"]):
+                    continue
+            except KeyError:
+                continue
+            if item["id"] in registered_ids:
+                continue
+            item_attributes = await director_get_entry_variables(hass, entry, item["id"])
+            if "RelayState" not in item_attributes:
+                continue
+            new_entities.append(
+                Control4Switch(
+                    entry_data,
+                    entry,
+                    str(item["name"]),
+                    item["id"],
+                    item.get("name"),
+                    item.get("manufacturer"),
+                    item.get("model"),
+                    item["parentId"],
+                    item["roomName"],
+                    item_attributes,
+                    item.get("proxy", ""),
+                )
+            )
+            registered_ids.add(item["id"])
+        if new_entities:
+            async_add_entities(new_entities, True)
+
+    entry.runtime_data[CONF_DYNAMIC_DEVICE_CALLBACKS].append(_async_add_new_switches)
 
 
 class Control4Switch(Control4Entity, SwitchEntity):

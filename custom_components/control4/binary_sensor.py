@@ -18,6 +18,7 @@ from . import Control4Entity, get_items_of_category
 from .const import (
     CONF_DIRECTOR,
     CONF_DIRECTOR_ALL_ITEMS,
+    CONF_DYNAMIC_DEVICE_CALLBACKS,
     CONF_DYNALITE_ENABLED,
     CONF_CONTROLLER_UNIQUE_ID,
     CONTROL4_ENTITY_TYPE,
@@ -221,6 +222,106 @@ async def async_setup_entry(
                 )
 
     async_add_entities(entity_list, True)
+
+    registered_unique_ids: set[str] = {e._attr_unique_id for e in entity_list}
+    registered_dynalite_ids: set[int] = {
+        e._idx for e in entity_list
+        if isinstance(e, Control4DynaliteTriggerBinarySensor)
+    }
+
+    async def _async_add_new_binary_sensors(hass: HomeAssistant, entry: Control4ConfigEntry) -> None:
+        entry_data = entry.runtime_data
+        new_entities = []
+
+        # Contact sensors from director category
+        new_items = await get_items_of_category(hass, entry, CONTROL4_CATEGORY)
+        new_garage_sensors = [
+            item for item in entry_data[CONF_DIRECTOR_ALL_ITEMS]
+            if item.get("proxy") == CONTROL4_GARAGE_DOOR_PROXY
+            and item["id"] not in {it["id"] for it in new_items}
+        ]
+        all_items = new_items + new_garage_sensors
+        director = entry_data[CONF_DIRECTOR]
+
+        for item in all_items:
+            try:
+                if not (item["type"] == CONTROL4_ENTITY_TYPE and item["id"]):
+                    continue
+                if item.get("proxy") in CONTROL4_RELAY_PROXY_TYPES:
+                    continue
+                proxy = item.get("proxy", "")
+                uid = f"{entry.entry_id}_{item['id']}_{proxy}_{item['name']}"
+                if uid in registered_unique_ids:
+                    continue
+                item_device_class = BinarySensorDeviceClass.OPENING
+                for proxy_type, dc in CONTROL4_PROXY_MAPPING.items():
+                    if proxy == proxy_type:
+                        item_device_class = dc
+                        break
+                item_setup_info = await director.get_item_setup(item["id"])
+                alarm_zone_id = None
+                if "panel_setup" in item_setup_info:
+                    for z in item_setup_info["panel_setup"]["all_zones"]["zone_info"]:
+                        if z["name"] == item["name"]:
+                            alarm_zone_id = z["id"]
+                            break
+                item_manufacturer = None
+                item_device_name = None
+                item_model = None
+                for parent_item in all_items:
+                    if parent_item["id"] == item["parentId"]:
+                        item_manufacturer = parent_item.get("manufacturer")
+                        item_device_name = parent_item.get("name")
+                        item_model = parent_item.get("model")
+                item_attributes = await director_get_entry_variables(hass, entry, item["id"])
+                new_entities.append(
+                    Control4BinarySensor(
+                        entry_data, entry,
+                        str(item["name"]), item["id"],
+                        item_device_name, item_manufacturer, item_model,
+                        item["parentId"], item["roomName"], item_attributes,
+                        item_device_class,
+                        int(alarm_zone_id) if alarm_zone_id is not None else None,
+                        proxy, uid,
+                    )
+                )
+                registered_unique_ids.add(uid)
+            except KeyError:
+                _LOGGER.warning("Unknown binary sensor device properties: %s", item)
+
+        # Dynalite triggers
+        if entry_data.get(CONF_DYNALITE_ENABLED):
+            for item in entry_data[CONF_DIRECTOR_ALL_ITEMS]:
+                if (
+                    item.get("type") == CONTROL4_ENTITY_TYPE
+                    and item.get("id")
+                    and item.get("proxy") == DYNALITE_TRIGGER_PROXY
+                    and item["id"] not in registered_dynalite_ids
+                ):
+                    item_id = item["id"]
+                    item_device_name = None
+                    for parent_item in entry_data[CONF_DIRECTOR_ALL_ITEMS]:
+                        if parent_item.get("id") == item.get("parentId"):
+                            item_device_name = parent_item.get("name")
+                            break
+                    new_entities.append(
+                        Control4DynaliteTriggerBinarySensor(
+                            entry_data=entry_data, entry=entry,
+                            name=str(item.get("name", f"Dynalite {item_id}")),
+                            idx=item_id,
+                            device_name=item_device_name,
+                            device_manufacturer=item.get("manufacturer"),
+                            device_model=item.get("model"),
+                            device_id=item.get("parentId") or 0,
+                            device_area=item.get("roomName", ""),
+                        )
+                    )
+                    registered_dynalite_ids.add(item_id)
+
+        if new_entities:
+            async_add_entities(new_entities, True)
+
+    entry.runtime_data[CONF_DYNAMIC_DEVICE_CALLBACKS].append(_async_add_new_binary_sensors)
 
 
 class Control4BinarySensor(Control4Entity, BinarySensorEntity):  # type: ignore[misc]
