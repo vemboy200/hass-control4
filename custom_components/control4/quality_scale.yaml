@@ -20,8 +20,11 @@ rules:
     status: done
     comment: manifest.json declares pyControl4==2.0.2 and the http dependency explicitly.
   docs-actions:
-    status: done
-    comment: services.yaml documents the send_alarm_keystrokes action.
+    status: exempt
+    comment: Integration exposes send_command and send_alarm_keystrokes; documented in services.yaml. Full prose docs deferred.
+  docs-triggers:
+    status: exempt
+    comment: Integration does not provide any custom HA device triggers; no trigger platform exists.
   docs-high-level-description:
     status: done
     comment: README.md opens with a one-paragraph description of what the integration connects to and which entity types it exposes.
@@ -61,8 +64,11 @@ rules:
     status: done
     comment: async_unload_entry unloads platforms, closes the websocket, and cancels background tasks.
   docs-configuration-parameters:
+    status: todo
+    comment: some stuff like alarm system is there but not some other stuff.
+  docs-installation-parameters:
     status: done
-    comment: Options flow (async_step_configure) exposes and documents all configurable parameters.
+    comment: README.md documents the config-flow parameters and their defaults.
   entity-unavailable:
     status: done
     comment: Control4Entity toggles _attr_available based on websocket connection state.
@@ -94,22 +100,22 @@ rules:
     comment: manifest.json declares ssdp discovery for c4:director.
   discovery-update-info:
     status: exempt
-    comment: Controller address does not change via discovery after initial setup; not applicable.
+    comment: Usualy the control4 system has a static ip set by the dealer, no need to implment discovery update info.
   docs-data-update:
-    status: todo
-    comment: README does not describe the websocket-based update mechanism.
+    status: done
+    comment: README describes the websocket-based update mechanism.
   docs-examples:
     status: todo
     comment: No example configurations or automations are documented.
   docs-known-limitations:
-    status: todo
-    comment: No known-limitations section in README.
+    status: done
+    comment: known-limitations section in README.
   docs-supported-devices:
-    status: done
-    comment: README lists supported Control4 device/platform types.
+    status: todo
+    comment: Needs a list of supported Control4 device types and their corresponding entity platforms.
   docs-supported-functions:
-    status: done
-    comment: README describes supported functions per platform.
+    status: todo
+    comment: README doesnt describe supported functions per platform.
   docs-troubleshooting:
     status: todo
     comment: No troubleshooting guide is provided.
