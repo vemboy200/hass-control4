@@ -79,8 +79,8 @@ rules:
     status: done
     comment: config_flow.py implements async_step_reauth and a dedicated reauth confirmation step.
   test-coverage:
-    status: todo
-    comment: No automated tests exist anywhere in the repository.
+    status: done
+    comment: tests/test_platforms.py covers light, switch, binary_sensor setup and the Control4Entity log-when-unavailable callback behavior.
 
   # Gold
   devices:
