@@ -36,10 +36,11 @@ Control4 can be autodiscovered, but if Home Assistant fails to discover it you c
 
 | Parameter | Description |
 | --------- | ----------- |
-| IP address | IP address of your Control4 controller |
+| IP address | IP address of your Control4 controller, can be automatically filled if set up through auto-discovery |
 | Username | Username used to log in to the Control4 app / customer portal |
 | Password | Password used to log in to the Control4 app / customer portal |
 
+An active internet connection is required during setup
 ### Options
 
 After setup, go to **Settings** → **Devices & Services** → **Control4** → **Configure** to adjust:
